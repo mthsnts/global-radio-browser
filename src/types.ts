@@ -20,3 +20,10 @@ export interface RadioStation {
     geo_lat: number;
     geo_long: number;
   }
+
+export interface AdvancedSearchState {
+  name: string;
+  country: string;
+  tags: string;
+  minBitrate: string;
+}
