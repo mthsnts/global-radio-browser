@@ -86,11 +86,11 @@ function App() {
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64 space-y-4">
             <div className="relative">
-              <div className="w-16 h-16 border-4 border-purple-400/30 dark:border-purple-500/30 rounded-full animate-spin">
-                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-purple-500 dark:border-t-purple-400 rounded-full"></div>
+              <div className="w-16 h-16 border-4 border-green-400/30 dark:border-green-500/30 rounded-full animate-spin">
+                <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-green-500 dark:border-t-green-400 rounded-full"></div>
               </div>
             </div>
-            <p className="text-purple-400 dark:text-purple-500 animate-pulse">Loading stations...</p>
+            <p className="text-green-400 dark:text-green-500 animate-pulse">Loading stations...</p>
           </div>
         ) : error ? (
           <div className="text-center p-8 rounded-xl bg-red-500/10 dark:bg-red-500/20 border border-red-500/20 dark:border-red-500/30">
@@ -116,7 +116,7 @@ function App() {
             ))}
             {!loading && hasMore && (
               <div ref={ref} className="col-span-full h-20 flex items-center justify-center">
-                <div className="animate-spin w-8 h-8 border-4 border-purple-500/20 dark:border-purple-500/30 border-t-purple-500 dark:border-t-purple-400 rounded-full" />
+                <div className="animate-spin w-8 h-8 border-4 border-green-500/20 dark:border-green-500/30 border-t-green-500 dark:border-t-green-400 rounded-full" />
               </div>
             )}
           </div>

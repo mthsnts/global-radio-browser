@@ -9,7 +9,7 @@ interface StationCardProps {
 export function StationCard({ station, onClick }: StationCardProps) {
   return (
     <div
-      className="group bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm shadow-md rounded-xl p-4 md:p-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all hover:scale-102 hover:shadow-xl hover:shadow-purple-500/10 dark:hover:shadow-purple-500/20 border border-gray-200 dark:border-gray-700"
+      className="group bg-white/30 dark:bg-gray-800/30 backdrop-blur-sm shadow-md rounded-xl p-4 md:p-6 cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-all hover:scale-102 hover:shadow-xl hover:shadow-green-500/10 dark:hover:shadow-green-500/20 border border-gray-200 dark:border-gray-700"
       onClick={() => onClick(station)}
     >
       <div className="flex items-start gap-4">
