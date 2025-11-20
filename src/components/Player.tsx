@@ -10,7 +10,7 @@ interface PlayerProps {
 export function Player({ station }: PlayerProps) {
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700 transition-transform">
-      <div className="container mx-auto p-4">
+      <div className="flex justify-between items-center container mx-auto p-4">
         <div className="flex items-center gap-4 mb-4">
           {station.favicon ? (
             <img
@@ -31,15 +31,18 @@ export function Player({ station }: PlayerProps) {
             <p className="text-sm text-gray-400 dark:text-gray-500 truncate">{station.country}</p>
           </div>
         </div>
+        <div className="w-[450px]">
         <AudioPlayer
           src={station.url_resolved}
           showJumpControls={false}
-          layout="stacked"
+          layout="horizontal"
           customProgressBarSection={[]}
           customControlsSection={[RHAP_UI.MAIN_CONTROLS, RHAP_UI.VOLUME_CONTROLS]}
           autoPlayAfterSrcChange={true}
-          className="bg-transparent !shadow-none"
+          volume={0.5}
+          className="bg-transparent !shadow-none dark:bg-gray-800/95 dark:border-gray-700"
         />
+        </div>
       </div>
     </div>
   );
