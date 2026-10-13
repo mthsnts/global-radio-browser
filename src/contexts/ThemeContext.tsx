@@ -10,21 +10,24 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(() => {
     // Check localStorage first, then system preference
-    const stored = localStorage.getItem('theme');
-    if (stored) {
-      return stored === 'dark';
+    try {
+      const stored = localStorage.getItem('theme');
+      if (stored) {
+        return stored === 'dark';
+      }
+    } catch {
+      // Storage unavailable; fall back to the system preference.
     }
     return window.matchMedia('(prefers-color-scheme: dark)').matches;
   });
 
   useEffect(() => {
     // Update document class and localStorage
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem('theme', 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem('theme', 'light');
+    document.documentElement.classList.toggle('dark', isDark);
+    try {
+      localStorage.setItem('theme', isDark ? 'dark' : 'light');
+    } catch {
+      // Storage unavailable; the theme still applies for this session.
     }
   }, [isDark]);
 

@@ -3,12 +3,22 @@ import type { RadioStation } from '../types';
 
 export function useFavorites() {
     const [favorites, setFavorites] = useState<RadioStation[]>(() => {
-        const saved = localStorage.getItem('favorites');
-        return saved ? JSON.parse(saved) : [];
+        try {
+            const saved = localStorage.getItem('favorites');
+            const parsed = saved ? JSON.parse(saved) : [];
+            return Array.isArray(parsed) ? parsed : [];
+        } catch {
+            // Storage can be unavailable (private mode) or hold corrupted data; start empty instead of crashing.
+            return [];
+        }
     });
 
     useEffect(() => {
-        localStorage.setItem('favorites', JSON.stringify(favorites));
+        try {
+            localStorage.setItem('favorites', JSON.stringify(favorites));
+        } catch {
+            // Ignore: favorites still work for this session.
+        }
     }, [favorites]);
 
     const addFavorite = (station: RadioStation) => {

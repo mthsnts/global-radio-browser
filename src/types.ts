@@ -25,5 +25,4 @@ export interface AdvancedSearchState {
   name: string;
   country: string;
   tags: string;
-  minBitrate: string;
 }
