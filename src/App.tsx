@@ -3,72 +3,30 @@ import 'react-h5-audio-player/lib/styles.css';
 import type { RadioStation, AdvancedSearchState } from './types';
 import { useInView } from 'react-intersection-observer';
 import { useFavorites } from './hooks/useFavorites';
+import { useStationSearch } from './hooks/useStationSearch';
 import { Header } from './components/Header';
 import { SearchBar } from './components/SearchBar';
 import { StationCard } from './components/StationCard';
 import { Player } from './components/Player';
 
 function App() {
-  const [stations, setStations] = useState<RadioStation[]>([]);
-  const [loading, setLoading] = useState(true);
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
   const [advancedSearch, setAdvancedSearch] = useState<AdvancedSearchState>({
     name: '',
     country: '',
     tags: '',
-    minBitrate: '',
   });
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [view, setView] = useState<'discover' | 'favorites'>('discover');
   const { ref, inView } = useInView();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
-
-  const [debouncedAdvancedSearch, setDebouncedAdvancedSearch] = useState(advancedSearch);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedAdvancedSearch(advancedSearch);
-      setPage(1);
-    }, 500);
-
-    return () => clearTimeout(timer);
-  }, [advancedSearch]);
+  const { stations, loading, loadingMore, error, hasMore, loadMore, retry } = useStationSearch(advancedSearch);
 
   useEffect(() => {
-    fetchStations();
-  }, [page, debouncedAdvancedSearch]);
-
-  const fetchStations = async () => {
-    try {
-      const response = await fetch(
-        `https://de1.api.radio-browser.info/json/stations/search?limit=24&offset=${(page - 1) * 24}&order=clickcount&reverse=true&name=${debouncedAdvancedSearch.name}&country=${debouncedAdvancedSearch.country}&tags=${debouncedAdvancedSearch.tags}&minbitrate=${debouncedAdvancedSearch.minBitrate}`
-      );
-      const data = await response.json();
-      setStations(prev => (page === 1 ? data : [...prev, ...data]));
-      setHasMore(data.length === 24);
-      setLoading(false);
-    } catch (err) {
-      setError('Failed to load radio stations');
-      setLoading(false);
+    if (inView && hasMore && !loading && !loadingMore && !error) {
+      loadMore();
     }
-  };
-
-  useEffect(() => {
-    if (inView && hasMore && !loading) {
-      setPage(prev => prev + 1);
-    }
-  }, [inView, hasMore, loading]);
-
-  const filteredStations = stations.filter(station => {
-    const matchName = station.name.toLowerCase().includes(advancedSearch.name.toLowerCase());
-    const matchCountry = station.country.toLowerCase().includes(advancedSearch.country.toLowerCase());
-    const matchTags = advancedSearch.tags ? station.tags.toLowerCase().includes(advancedSearch.tags.toLowerCase()) : true;
-    const matchBitrate = advancedSearch.minBitrate ? station.bitrate >= parseInt(advancedSearch.minBitrate) : true;
-    return matchName && matchCountry && matchTags && matchBitrate;
-  });
+  }, [inView, hasMore, loading, loadingMore, error, loadMore]);
 
   const handleStationClick = (station: RadioStation) => {
     setCurrentStation(station);
@@ -129,7 +87,7 @@ function App() {
                 <span className="text-5xl">⚠️</span>
                 <p>{error}</p>
                 <button
-                  onClick={fetchStations}
+                  onClick={retry}
                   className="px-4 py-2 bg-red-500/20 dark:bg-red-500/30 rounded-lg hover:bg-red-500/30 dark:hover:bg-red-500/40 transition-colors"
                 >
                   Try Again
@@ -138,7 +96,13 @@ function App() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {filteredStations.map((station) => (
+              {stations.length === 0 && (
+                <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
+                  <p className="text-lg">No stations found.</p>
+                  <p className="text-sm">Try a different name, country or tag.</p>
+                </div>
+              )}
+              {stations.map((station) => (
                 <StationCard
                   key={station.stationuuid}
                   station={station}
@@ -147,7 +111,7 @@ function App() {
                   onToggleFavorite={toggleFavorite}
                 />
               ))}
-              {!loading && hasMore && (
+              {hasMore && (
                 <div ref={ref} className="col-span-full h-20 flex items-center justify-center">
                   <div className="animate-spin w-8 h-8 border-4 border-green-500/20 dark:border-green-500/30 border-t-green-500 dark:border-t-green-400 rounded-full" />
                 </div>
@@ -176,7 +140,7 @@ function App() {
         )}
       </main>
 
-      {currentStation && <Player station={currentStation} />}
+      {currentStation && <Player station={currentStation} onClose={() => setCurrentStation(null)} />}
     </div>
   );
 }
