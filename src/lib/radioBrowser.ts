@@ -30,14 +30,13 @@ async function apiFetch(path: string, signal?: AbortSignal): Promise<Response> {
   throw lastError;
 }
 
-export async function searchStations(
-  search: AdvancedSearchState,
-  page: number,
-  signal?: AbortSignal
-): Promise<RadioStation[]> {
+// The map plots at most this many stations so the browser stays responsive.
+export const MAP_LIMIT = 500;
+
+function searchParams(search: AdvancedSearchState, limit: number, offset: number) {
   const params = new URLSearchParams({
-    limit: String(PAGE_SIZE),
-    offset: String((page - 1) * PAGE_SIZE),
+    limit: String(limit),
+    offset: String(offset),
     order: 'clickcount',
     reverse: 'true',
     hidebroken: 'true',
@@ -49,10 +48,28 @@ export async function searchStations(
     params.set('countryExact', 'true');
   }
   if (search.tags.trim()) params.set('tag', search.tags.trim());
+  return params;
+}
 
+async function fetchStations(params: URLSearchParams, signal?: AbortSignal): Promise<RadioStation[]> {
   const response = await apiFetch(`/json/stations/search?${params}`, signal);
   if (!response.ok) throw new Error(`Request failed with status ${response.status}`);
   return response.json();
+}
+
+export function searchStations(
+  search: AdvancedSearchState,
+  page: number,
+  signal?: AbortSignal
+): Promise<RadioStation[]> {
+  return fetchStations(searchParams(search, PAGE_SIZE, (page - 1) * PAGE_SIZE), signal);
+}
+
+// Most-listened stations that have coordinates, for the map view.
+export function searchGeoStations(search: AdvancedSearchState, signal?: AbortSignal): Promise<RadioStation[]> {
+  const params = searchParams(search, MAP_LIMIT, 0);
+  params.set('has_geo_info', 'true');
+  return fetchStations(params, signal);
 }
 
 // The API asks clients to report a click whenever a station starts playing; it feeds the clickcount ranking.

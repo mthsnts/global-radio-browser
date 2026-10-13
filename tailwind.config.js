@@ -51,6 +51,15 @@ module.exports = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          DEFAULT: "hsl(var(--brand))",
+          foreground: "hsl(var(--brand-foreground))",
+          strong: "hsl(var(--brand-strong))",
+        },
+      },
+      fontFamily: {
+        sans: ['"DM Sans"', "system-ui", "sans-serif"],
+        display: ['"Space Grotesk"', '"DM Sans"', "system-ui", "sans-serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

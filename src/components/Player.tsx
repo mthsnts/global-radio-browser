@@ -1,108 +1,213 @@
-import { useEffect, useState } from 'react';
-import { Music2, X, AlertTriangle } from 'lucide-react';
-import AudioPlayer from 'react-h5-audio-player';
-import { RHAP_UI } from 'react-h5-audio-player';
+import { useEffect, useRef, useState } from 'react';
+import { AlertTriangle, Heart, Loader2, Pause, Play, Volume2, VolumeX, X } from 'lucide-react';
 import type { RadioStation } from '../types';
+import { cn } from '@/lib/utils';
 import { registerClick } from '../lib/radioBrowser';
+import { stationLocation, stationTags } from '../lib/stationVisuals';
+import { StationAvatar } from './StationAvatar';
 
 interface PlayerProps {
   station: RadioStation;
   onClose: () => void;
+  isFavorite: boolean;
+  onToggleFavorite: (station: RadioStation) => void;
 }
+
+type Status = 'loading' | 'playing' | 'paused' | 'error';
+
+const VOLUME_KEY = 'volume';
 
 // Browsers try to upgrade http:// audio to https:// on a secure page; when the station has no https stream it fails.
 function playbackErrorMessage(url: string) {
   if (window.location.protocol === 'https:' && url.startsWith('http://')) {
-    return "This station only offers an insecure stream, which your browser blocked.";
+    return 'Esta rádio só tem transmissão sem segurança, que o navegador bloqueou.';
   }
-  return "This station can't be played right now. Try another one.";
+  return 'Não foi possível tocar esta rádio agora. Tente outra.';
 }
 
-export function Player({ station, onClose }: PlayerProps) {
-  const [playbackError, setPlaybackError] = useState<string | null>(null);
+function readStoredVolume() {
+  try {
+    const stored = Number(localStorage.getItem(VOLUME_KEY));
+    return Number.isFinite(stored) && stored > 0 && stored <= 1 ? stored : 0.7;
+  } catch {
+    return 0.7;
+  }
+}
+
+export function Player({ station, onClose, isFavorite, onToggleFavorite }: PlayerProps) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const [status, setStatus] = useState<Status>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [volume, setVolume] = useState(readStoredVolume);
+  const [muted, setMuted] = useState(false);
 
   useEffect(() => {
-    setPlaybackError(null);
+    const audio = audioRef.current;
+    if (!audio) return;
+    setError(null);
+    setStatus('loading');
+    audio.src = station.url_resolved;
+    audio.play().catch((err: Error) => {
+      // NotAllowedError is the browser's autoplay policy, not a broken stream; the user can press play.
+      if (err.name === 'NotAllowedError') setStatus('paused');
+    });
     registerClick(station.stationuuid);
-  }, [station.stationuuid]);
+  }, [station.stationuuid, station.url_resolved]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      audioRef.current.muted = muted;
+    }
+    try {
+      localStorage.setItem(VOLUME_KEY, String(volume));
+    } catch {
+      // Storage unavailable; the volume still applies for this session.
+    }
+  }, [volume, muted]);
+
+  // Stop the stream when the player is closed, otherwise the audio keeps downloading.
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => {
+      if (audio) {
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+      }
+    };
+  }, []);
+
+  const togglePlay = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (status === 'playing' || status === 'loading') {
+      audio.pause();
+    } else {
+      setError(null);
+      setStatus('loading');
+      // Reloading jumps back to the live point instead of resuming stale buffered audio.
+      audio.src = station.url_resolved;
+      audio.play().catch(() => {});
+    }
+  };
+
+  // Lock screen and headphone controls.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return;
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: station.name,
+      artist: stationLocation(station),
+      artwork: station.favicon ? [{ src: station.favicon }] : [],
+    });
+    navigator.mediaSession.setActionHandler('play', () => audioRef.current?.play().catch(() => {}));
+    navigator.mediaSession.setActionHandler('pause', () => audioRef.current?.pause());
+    return () => {
+      navigator.mediaSession.setActionHandler('play', null);
+      navigator.mediaSession.setActionHandler('pause', null);
+    };
+  }, [station]);
+
+  const subtitle = [stationLocation(station), stationTags(station).join(', '), station.bitrate > 0 ? `${station.bitrate} kbps` : '']
+    .filter(Boolean)
+    .join(' · ');
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 p-4 z-50 pointer-events-none">
-      <div className="container mx-auto max-w-4xl pointer-events-auto">
-        <div className="relative bg-white/80 dark:bg-black/80 backdrop-blur-xl border border-white/20 dark:border-white/10 shadow-2xl rounded-2xl p-4 flex items-center gap-4 md:gap-6">
-          <button
-            onClick={onClose}
-            className="absolute -top-3 -right-3 p-1.5 rounded-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-            aria-label="Close player"
-          >
-            <X size={16} className="text-gray-600 dark:text-gray-300" />
-          </button>
-
-          {/* Station Info */}
-          <div className="flex items-center gap-4 flex-1 min-w-0">
-            <div className="relative group shrink-0">
-              {station.favicon ? (
-                <img
-                  src={station.favicon}
-                  alt={station.name}
-                  className="w-14 h-14 rounded-xl object-cover shadow-md group-hover:scale-105 transition-transform"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://placehold.co/56x56/green/white?text=Radio';
-                  }}
-                />
-              ) : (
-                <div className="w-14 h-14 rounded-xl bg-green-100 dark:bg-green-900/20 flex items-center justify-center group-hover:scale-105 transition-transform">
-                  <Music2 className="text-green-500 dark:text-green-400" />
-                </div>
-              )}
-              {/* Visualizer Overlay */}
-              <div className="absolute inset-0 flex items-end justify-center gap-1 p-3 opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-xl">
-                <div className="w-1 bg-white rounded-full playing-bar" style={{ animationDelay: '0s' }}></div>
-                <div className="w-1 bg-white rounded-full playing-bar" style={{ animationDelay: '0.2s' }}></div>
-                <div className="w-1 bg-white rounded-full playing-bar" style={{ animationDelay: '0.4s' }}></div>
-              </div>
-            </div>
-
-            <div className="min-w-0">
-              <h3 className="font-bold text-base truncate text-foreground">{station.name}</h3>
-              {playbackError ? (
-                <p className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400">
-                  <AlertTriangle size={12} className="shrink-0" />
-                  <span className="truncate" title={playbackError}>{playbackError}</span>
-                </p>
-              ) : (
-                <div className="flex items-center gap-2">
-                  <div className="flex items-end gap-0.5 h-3">
-                    <div className="w-0.5 bg-green-500 rounded-full playing-bar" style={{ animationDelay: '0s' }}></div>
-                    <div className="w-0.5 bg-green-500 rounded-full playing-bar" style={{ animationDelay: '0.3s' }}></div>
-                    <div className="w-0.5 bg-green-500 rounded-full playing-bar" style={{ animationDelay: '0.1s' }}></div>
-                  </div>
-                  <p className="text-xs font-medium text-muted-foreground truncate uppercase tracking-wide">{station.country}</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Player Controls */}
-          <div className="flex-1 max-w-md">
-            <AudioPlayer
-              src={station.url_resolved}
-              showJumpControls={false}
-              layout="horizontal-reverse"
-              customProgressBarSection={[]}
-              customControlsSection={[RHAP_UI.MAIN_CONTROLS, RHAP_UI.VOLUME_CONTROLS]}
-              autoPlayAfterSrcChange={true}
-              volume={0.5}
-              onPlaying={() => setPlaybackError(null)}
-              onError={() => setPlaybackError(playbackErrorMessage(station.url_resolved))}
-              onPlayError={(err) => {
-                // NotAllowedError is the browser's autoplay policy, not a broken stream; the user can press play.
-                if (err.name !== 'NotAllowedError') setPlaybackError(playbackErrorMessage(station.url_resolved));
-              }}
-              className="!bg-transparent !shadow-none !p-0"
-            />
+    <div className="fixed inset-x-0 bottom-[68px] z-40 px-2 pb-2 md:bottom-0 md:px-0 md:pb-0">
+      <audio
+        ref={audioRef}
+        preload="none"
+        onPlaying={() => setStatus('playing')}
+        onPause={() => setStatus((current) => (current === 'error' ? current : 'paused'))}
+        onWaiting={() => setStatus('loading')}
+        onError={() => {
+          if (!audioRef.current?.getAttribute('src')) return;
+          setStatus('error');
+          setError(playbackErrorMessage(station.url_resolved));
+        }}
+      />
+      <div className="mx-auto flex max-w-7xl items-center gap-3 rounded-2xl border bg-card/95 p-2 shadow-2xl backdrop-blur-lg md:gap-6 md:rounded-none md:border-x-0 md:border-b-0 md:bg-background/95 md:px-8 md:py-3.5 md:shadow-none">
+        <div className="flex min-w-0 flex-1 items-center gap-3 md:gap-3.5">
+          <StationAvatar
+            station={station}
+            playing={status === 'playing'}
+            className="h-11 w-11 rounded-[10px] md:h-14 md:w-14 md:rounded-xl"
+            initialsClassName="text-base md:text-lg"
+          />
+          <div className="flex min-w-0 flex-col gap-0.5 md:gap-1">
+            <span className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-bold md:text-base">{station.name}</span>
+              <span className="hidden shrink-0 rounded bg-brand px-1.5 py-0.5 text-[11px] font-bold tracking-wider text-brand-foreground sm:inline">
+                AO VIVO
+              </span>
+            </span>
+            {error ? (
+              <span className="flex min-w-0 items-center gap-1 text-xs text-destructive" role="alert">
+                <AlertTriangle size={12} className="shrink-0" aria-hidden="true" />
+                <span className="truncate" title={error}>{error}</span>
+              </span>
+            ) : (
+              <span className="truncate text-xs text-muted-foreground md:text-[13px]">{subtitle}</span>
+            )}
           </div>
         </div>
+
+        <button
+          type="button"
+          onClick={togglePlay}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand text-brand-foreground transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background md:h-14 md:w-14"
+          aria-label={status === 'playing' || status === 'loading' ? 'Pausar' : 'Tocar'}
+        >
+          {status === 'loading' ? (
+            <Loader2 size={22} className="animate-spin" />
+          ) : status === 'playing' ? (
+            <Pause size={22} className="fill-current" />
+          ) : (
+            <Play size={22} className="ml-0.5 fill-current" />
+          )}
+        </button>
+
+        <div className="hidden flex-1 items-center justify-end gap-2 md:flex">
+          <button
+            type="button"
+            onClick={() => onToggleFavorite(station)}
+            className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={isFavorite ? 'Remover dos favoritos' : 'Favoritar'}
+            aria-pressed={isFavorite}
+          >
+            <Heart size={20} className={cn(isFavorite ? 'fill-brand text-brand' : 'text-muted-foreground')} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMuted((m) => !m)}
+            className="flex h-11 w-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label={muted ? 'Ativar som' : 'Silenciar'}
+          >
+            {muted || volume === 0 ? <VolumeX size={20} /> : <Volume2 size={20} />}
+          </button>
+          <input
+            type="range"
+            min={0}
+            max={1}
+            step={0.01}
+            value={muted ? 0 : volume}
+            onChange={(e) => {
+              setVolume(Number(e.target.value));
+              setMuted(false);
+            }}
+            aria-label="Volume"
+            className="w-28 accent-[hsl(var(--brand))]"
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Fechar player"
+        >
+          <X size={18} />
+        </button>
       </div>
     </div>
   );

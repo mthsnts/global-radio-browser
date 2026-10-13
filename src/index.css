@@ -4,48 +4,55 @@
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 240 10% 3.9%;
+        --background: 220 20% 97%;
+        --foreground: 218 22% 7%;
         --card: 0 0% 100%;
-        --card-foreground: 240 10% 3.9%;
+        --card-foreground: 218 22% 7%;
         --popover: 0 0% 100%;
-        --popover-foreground: 240 10% 3.9%;
-        --primary: 240 5.9% 10%;
-        --primary-foreground: 0 0% 98%;
-        --secondary: 240 4.8% 95.9%;
-        --secondary-foreground: 240 5.9% 10%;
-        --muted: 240 4.8% 95.9%;
-        --muted-foreground: 240 3.8% 46.1%;
-        --accent: 240 4.8% 95.9%;
-        --accent-foreground: 240 5.9% 10%;
-        --destructive: 0 84.2% 60.2%;
+        --popover-foreground: 218 22% 7%;
+        --primary: 218 22% 7%;
+        --primary-foreground: 216 28% 93%;
+        --secondary: 214 26% 95%;
+        --secondary-foreground: 218 22% 7%;
+        --muted: 216 25% 92%;
+        --muted-foreground: 219 13% 40%;
+        --accent: 214 26% 95%;
+        --accent-foreground: 218 22% 7%;
+        --destructive: 0 72% 51%;
         --destructive-foreground: 0 0% 98%;
-        --border: 240 5.9% 90%;
-        --input: 240 5.9% 90%;
-        --ring: 240 10% 3.9%;
-        --radius: 0.5rem;
+        --border: 215 21% 89%;
+        --input: 215 21% 89%;
+        --ring: 24 100% 62%;
+        --radius: 0.75rem;
+        /* Brand accent: --brand is for fills (always paired with dark text), --brand-strong for text on the page background. */
+        --brand: 24 100% 62%;
+        --brand-foreground: 218 22% 7%;
+        --brand-strong: 17 88% 40%;
     }
 
     .dark {
-        --background: 240 10% 3.9%;
-        --foreground: 0 0% 98%;
-        --card: 240 10% 3.9%;
-        --card-foreground: 0 0% 98%;
-        --popover: 240 10% 3.9%;
-        --popover-foreground: 0 0% 98%;
-        --primary: 0 0% 98%;
-        --primary-foreground: 240 5.9% 10%;
-        --secondary: 240 3.7% 15.9%;
-        --secondary-foreground: 0 0% 98%;
-        --muted: 240 3.7% 15.9%;
-        --muted-foreground: 240 5% 64.9%;
-        --accent: 240 3.7% 15.9%;
-        --accent-foreground: 0 0% 98%;
-        --destructive: 0 62.8% 30.6%;
+        --background: 218 22% 7%;
+        --foreground: 216 28% 93%;
+        --card: 218 22% 10%;
+        --card-foreground: 216 28% 93%;
+        --popover: 217 23% 11%;
+        --popover-foreground: 216 28% 93%;
+        --primary: 216 28% 93%;
+        --primary-foreground: 218 22% 7%;
+        --secondary: 217 23% 11%;
+        --secondary-foreground: 216 28% 93%;
+        --muted: 218 21% 15%;
+        --muted-foreground: 219 14% 60%;
+        --accent: 218 21% 15%;
+        --accent-foreground: 216 28% 93%;
+        --destructive: 0 72% 60%;
         --destructive-foreground: 0 0% 98%;
-        --border: 240 3.7% 15.9%;
-        --input: 240 3.7% 15.9%;
-        --ring: 240 4.9% 83.9%;
+        --border: 217 19% 18%;
+        --input: 217 19% 22%;
+        --ring: 24 100% 62%;
+        --brand: 24 100% 62%;
+        --brand-foreground: 218 22% 7%;
+        --brand-strong: 24 100% 62%;
     }
 }
 
@@ -55,60 +62,18 @@
     }
 
     body {
-        @apply bg-background text-foreground;
+        @apply bg-background text-foreground font-sans antialiased;
     }
 }
 
-/* Audio Player Customization */
-.rhap_container {
-    @apply !bg-transparent !shadow-none !p-0 !outline-none;
-}
-
-.rhap_main-controls-button {
-    @apply !text-foreground transition-colors;
-}
-
-.rhap_main-controls-button:hover {
-    @apply !text-green-500;
-}
-
-.rhap_play-pause-button {
-    @apply !text-green-500 transition-transform;
-}
-
-.rhap_play-pause-button:hover {
-    @apply !scale-110;
-}
-
-.rhap_volume-button {
-    @apply !text-muted-foreground transition-colors;
-}
-
-.rhap_volume-button:hover {
-    @apply !text-foreground;
-}
-
-.rhap_volume-bar {
-    @apply !bg-secondary;
-}
-
-.rhap_volume-indicator {
-    @apply !bg-green-500 !opacity-100;
-}
-
-.rhap_progress-indicator,
-.rhap_volume-indicator {
-    @apply !w-3 !h-3 !shadow-md;
-}
-
-/* Playing Animation */
+/* Equalizer bars on the station that is playing */
 .playing-bar {
     animation: playing 1s ease-in-out infinite;
 }
 
 @keyframes playing {
     0% {
-        height: 20%;
+        height: 25%;
     }
 
     50% {
@@ -116,6 +81,57 @@
     }
 
     100% {
-        height: 20%;
+        height: 25%;
     }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .playing-bar {
+        animation: none;
+        height: 60%;
+    }
+}
+
+/* Leaflet popups follow the app theme */
+.leaflet-container {
+    @apply bg-background font-sans;
+}
+
+/* Leaflet's own stylesheet loads with the map chunk, after this file, so these need !important to win. */
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+    @apply !bg-popover !text-popover-foreground !shadow-xl;
+}
+
+.leaflet-popup-content-wrapper {
+    @apply !rounded-xl border;
+}
+
+.leaflet-popup-content {
+    @apply !m-3;
+}
+
+.leaflet-container a.leaflet-popup-close-button {
+    @apply text-muted-foreground;
+}
+
+.leaflet-control-attribution {
+    @apply !bg-background/80 !text-muted-foreground;
+}
+
+.leaflet-control-attribution a {
+    @apply !text-muted-foreground;
+}
+
+.leaflet-bar a {
+    @apply !bg-card !text-foreground !border-border;
+}
+
+/* Hide the horizontal scrollbar on the genre chip row while keeping it scrollable */
+.no-scrollbar {
+    scrollbar-width: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+    display: none;
 }

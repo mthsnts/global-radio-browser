@@ -1,13 +1,45 @@
-import { useState, useEffect } from 'react';
-import 'react-h5-audio-player/lib/styles.css';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { Heart, Loader2, RotateCw } from 'lucide-react';
 import type { RadioStation, AdvancedSearchState } from './types';
 import { useInView } from 'react-intersection-observer';
 import { useFavorites } from './hooks/useFavorites';
 import { useStationSearch } from './hooks/useStationSearch';
 import { Header } from './components/Header';
-import { SearchBar } from './components/SearchBar';
+import { FilterBar } from './components/FilterBar';
+import { BottomNavigation, type View } from './components/Navigation';
 import { StationCard } from './components/StationCard';
+import { StationTile } from './components/StationTile';
 import { Player } from './components/Player';
+
+// Leaflet is only downloaded when the map is opened.
+const StationMap = lazy(() => import('./components/StationMap'));
+
+const TRENDING_COUNT = 5;
+
+function SectionTitle({ children, aside }: { children: React.ReactNode; aside?: React.ReactNode }) {
+  return (
+    <div className="flex flex-wrap items-baseline justify-between gap-4">
+      <h2 className="font-display text-xl font-bold tracking-tight md:text-2xl">{children}</h2>
+      {aside}
+    </div>
+  );
+}
+
+function CardSkeletons() {
+  return (
+    <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" aria-hidden="true">
+      {Array.from({ length: 8 }, (_, i) => (
+        <div key={i} className="flex items-center gap-3.5 rounded-2xl border bg-card p-3">
+          <div className="h-14 w-14 animate-pulse rounded-xl bg-muted" />
+          <div className="flex flex-1 flex-col gap-2">
+            <div className="h-4 w-3/4 animate-pulse rounded bg-muted" />
+            <div className="h-3 w-1/2 animate-pulse rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 function App() {
   const [currentStation, setCurrentStation] = useState<RadioStation | null>(null);
@@ -16,131 +48,154 @@ function App() {
     country: '',
     tags: '',
   });
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  const [view, setView] = useState<'discover' | 'favorites'>('discover');
+  const [view, setView] = useState<View>('explore');
   const { ref, inView } = useInView();
   const { favorites, isFavorite, toggleFavorite } = useFavorites();
   const { stations, loading, loadingMore, error, hasMore, loadMore, retry } = useStationSearch(advancedSearch);
 
   useEffect(() => {
-    if (inView && hasMore && !loading && !loadingMore && !error) {
+    if (view === 'explore' && inView && hasMore && !loading && !loadingMore && !error) {
       loadMore();
     }
-  }, [inView, hasMore, loading, loadingMore, error, loadMore]);
+  }, [view, inView, hasMore, loading, loadingMore, error, loadMore]);
 
-  const handleStationClick = (station: RadioStation) => {
-    setCurrentStation(station);
+  const changeView = (next: View) => {
+    setView(next);
+    window.scrollTo({ top: 0 });
   };
 
+  const isPlaying = (station: RadioStation) => currentStation?.stationuuid === station.stationuuid;
+
+  // The "Em alta" row only makes sense for the default ranking, not for a name search.
+  const showTrending = !advancedSearch.name.trim() && stations.length > TRENDING_COUNT;
+  const trending = showTrending ? stations.slice(0, TRENDING_COUNT) : [];
+  const listed = showTrending ? stations.slice(TRENDING_COUNT) : stations;
+  const trendingTitle = advancedSearch.country ? `Em alta: ${advancedSearch.country}` : 'Em alta no mundo';
+
+  const renderCard = (station: RadioStation) => (
+    <StationCard
+      key={station.stationuuid}
+      station={station}
+      playing={isPlaying(station)}
+      onPlay={setCurrentStation}
+      isFavorite={isFavorite(station.stationuuid)}
+      onToggleFavorite={toggleFavorite}
+    />
+  );
+
   return (
-    <div className="min-h-screen bg-white dark:bg-gray-900 text-black dark:text-gray-100">
-      <Header />
+    <div className="min-h-screen bg-background text-foreground">
+      <Header
+        query={advancedSearch.name}
+        onQueryChange={(name) => setAdvancedSearch((prev) => ({ ...prev, name }))}
+        view={view}
+        onViewChange={changeView}
+        favoritesCount={favorites.length}
+      />
 
-      <main className="container mx-auto p-4 md:p-6 space-y-8">
-        <SearchBar
-          advancedSearch={advancedSearch}
-          showAdvancedSearch={showAdvancedSearch}
-          setAdvancedSearch={setAdvancedSearch}
-          setShowAdvancedSearch={setShowAdvancedSearch}
-        />
+      <main
+        className={`mx-auto flex max-w-7xl flex-col gap-8 px-4 pt-5 md:gap-9 md:px-8 md:pt-7 ${
+          currentStation ? 'pb-48 md:pb-32' : 'pb-28 md:pb-12'
+        }`}
+      >
+        {view !== 'favorites' && (
+          <FilterBar
+            country={advancedSearch.country}
+            tag={advancedSearch.tags}
+            onCountryChange={(country) => setAdvancedSearch((prev) => ({ ...prev, country }))}
+            onTagChange={(tags) => setAdvancedSearch((prev) => ({ ...prev, tags }))}
+          />
+        )}
 
-        <div className="flex gap-4 border-b border-gray-200 dark:border-gray-800">
-          <button
-            onClick={() => setView('discover')}
-            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${view === 'discover'
-                ? 'text-green-500 dark:text-green-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-          >
-            Discover
-            {view === 'discover' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500 dark:bg-green-400" />
-            )}
-          </button>
-          <button
-            onClick={() => setView('favorites')}
-            className={`pb-2 px-1 text-sm font-medium transition-colors relative ${view === 'favorites'
-                ? 'text-green-500 dark:text-green-400'
-                : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
-          >
-            Favorites ({favorites.length})
-            {view === 'favorites' && (
-              <div className="absolute bottom-0 left-0 w-full h-0.5 bg-green-500 dark:bg-green-400" />
-            )}
-          </button>
-        </div>
-
-        {view === 'discover' ? (
-          loading ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-              <div className="relative">
-                <div className="w-16 h-16 border-4 border-green-400/30 dark:border-green-500/30 rounded-full animate-spin">
-                  <div className="absolute top-0 left-0 w-16 h-16 border-4 border-t-green-500 dark:border-t-green-400 rounded-full"></div>
-                </div>
-              </div>
-              <p className="text-green-400 dark:text-green-500 animate-pulse">Loading stations...</p>
-            </div>
+        {view === 'explore' &&
+          (loading ? (
+            <CardSkeletons />
           ) : error ? (
-            <div className="text-center p-8 rounded-xl bg-red-500/10 dark:bg-red-500/20 border border-red-500/20 dark:border-red-500/30">
-              <div className="text-red-400 dark:text-red-500 flex flex-col items-center gap-4">
-                <span className="text-5xl">⚠️</span>
-                <p>{error}</p>
-                <button
-                  onClick={retry}
-                  className="px-4 py-2 bg-red-500/20 dark:bg-red-500/30 rounded-lg hover:bg-red-500/30 dark:hover:bg-red-500/40 transition-colors"
-                >
-                  Try Again
-                </button>
-              </div>
+            <div className="flex flex-col items-center gap-4 rounded-2xl border border-destructive/30 bg-destructive/5 p-10 text-center">
+              <p className="text-destructive">Não foi possível carregar as estações.</p>
+              <button
+                type="button"
+                onClick={retry}
+                className="flex h-11 items-center gap-2 rounded-full border px-5 font-semibold hover:bg-secondary"
+              >
+                <RotateCw size={16} /> Tentar de novo
+              </button>
+            </div>
+          ) : stations.length === 0 ? (
+            <div className="py-16 text-center text-muted-foreground">
+              <p className="text-lg text-foreground">Nenhuma estação encontrada.</p>
+              <p className="text-sm">Tente outro nome, país ou gênero.</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
-              {stations.length === 0 && (
-                <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
-                  <p className="text-lg">No stations found.</p>
-                  <p className="text-sm">Try a different name, country or tag.</p>
-                </div>
+            <>
+              {showTrending && (
+                <section className="flex flex-col gap-4">
+                  <SectionTitle>{trendingTitle}</SectionTitle>
+                  <div className="no-scrollbar -mx-4 grid auto-cols-[42%] grid-flow-col gap-4 overflow-x-auto px-4 sm:auto-cols-[28%] md:mx-0 md:grid-flow-row md:grid-cols-5 md:gap-5 md:overflow-visible md:px-0">
+                    {trending.map((station) => (
+                      <StationTile key={station.stationuuid} station={station} playing={isPlaying(station)} onPlay={setCurrentStation} />
+                    ))}
+                  </div>
+                </section>
               )}
-              {stations.map((station) => (
-                <StationCard
-                  key={station.stationuuid}
-                  station={station}
-                  onClick={handleStationClick}
-                  isFavorite={isFavorite(station.stationuuid)}
-                  onToggleFavorite={toggleFavorite}
-                />
-              ))}
-              {hasMore && (
-                <div ref={ref} className="col-span-full h-20 flex items-center justify-center">
-                  <div className="animate-spin w-8 h-8 border-4 border-green-500/20 dark:border-green-500/30 border-t-green-500 dark:border-t-green-400 rounded-full" />
-                </div>
-              )}
-            </div>
-          )
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 md:gap-6">
+              <section className="flex flex-col gap-4">
+                <SectionTitle aside={<span className="text-sm text-muted-foreground">Mais ouvidas primeiro</span>}>
+                  {showTrending ? 'Todas as estações' : 'Resultados'}
+                </SectionTitle>
+                <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{listed.map(renderCard)}</div>
+                {hasMore && (
+                  <div ref={ref} className="flex h-20 items-center justify-center text-muted-foreground">
+                    <Loader2 className="animate-spin" aria-label="Carregando mais estações" />
+                  </div>
+                )}
+              </section>
+            </>
+          ))}
+
+        {view === 'favorites' && (
+          <section className="flex flex-col gap-4">
+            <SectionTitle>Favoritas</SectionTitle>
             {favorites.length === 0 ? (
-              <div className="col-span-full text-center py-12 text-gray-500 dark:text-gray-400">
-                <p className="text-lg">No favorite stations yet.</p>
-                <p className="text-sm">Click the heart icon on a station to add it to your favorites.</p>
+              <div className="flex flex-col items-center gap-2 py-16 text-center text-muted-foreground">
+                <Heart size={32} aria-hidden="true" />
+                <p className="text-lg text-foreground">Nenhuma rádio favorita ainda.</p>
+                <p className="text-sm">Toque no coração de uma estação para guardá-la aqui.</p>
               </div>
             ) : (
-              favorites.map((station) => (
-                <StationCard
-                  key={station.stationuuid}
-                  station={station}
-                  onClick={handleStationClick}
-                  isFavorite={true}
-                  onToggleFavorite={toggleFavorite}
-                />
-              ))
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{favorites.map(renderCard)}</div>
             )}
-          </div>
+          </section>
+        )}
+
+        {view === 'map' && (
+          <Suspense
+            fallback={
+              <div className="flex h-[60vh] items-center justify-center rounded-2xl border text-muted-foreground">
+                <Loader2 className="animate-spin" aria-label="Carregando mapa" />
+              </div>
+            }
+          >
+            <StationMap
+              search={advancedSearch}
+              playerOpen={currentStation !== null}
+              currentStation={currentStation}
+              onPlay={setCurrentStation}
+              isFavorite={isFavorite}
+              onToggleFavorite={toggleFavorite}
+            />
+          </Suspense>
         )}
       </main>
 
-      {currentStation && <Player station={currentStation} onClose={() => setCurrentStation(null)} />}
+      {currentStation && (
+        <Player
+          station={currentStation}
+          onClose={() => setCurrentStation(null)}
+          isFavorite={isFavorite(currentStation.stationuuid)}
+          onToggleFavorite={toggleFavorite}
+        />
+      )}
+      <BottomNavigation view={view} onChange={changeView} favoritesCount={favorites.length} />
     </div>
   );
 }

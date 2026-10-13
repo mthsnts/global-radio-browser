@@ -1,2 +1,7 @@
 node_modules
 
+
+# Local environment files (hold API tokens)
+.env
+.env.local
+.env.*.local
