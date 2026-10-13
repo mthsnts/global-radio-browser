@@ -8,6 +8,7 @@ export interface RadioStation {
     favicon: string;
     tags: string;
     country: string;
+    state: string;
     countrycode: string;
     language: string;
     votes: number;

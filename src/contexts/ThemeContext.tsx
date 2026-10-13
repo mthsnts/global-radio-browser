@@ -9,16 +9,17 @@ const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [isDark, setIsDark] = useState(() => {
-    // Check localStorage first, then system preference
+    // Check localStorage first, then default to dark
     try {
       const stored = localStorage.getItem('theme');
       if (stored) {
         return stored === 'dark';
       }
     } catch {
-      // Storage unavailable; fall back to the system preference.
+      // Storage unavailable; fall back to the default.
     }
-    return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    // Dark is the default look; only an explicit stored choice switches to light.
+    return true;
   });
 
   useEffect(() => {
